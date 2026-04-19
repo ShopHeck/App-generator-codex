@@ -1,0 +1,10 @@
+{
+  "name": "app-generator-codex",
+  "version": "0.1.0",
+  "description": "Backend workflow skeleton for AI-generated iOS apps",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "generate:demo": "node src/orchestration/demo-run.js"
+  }
+}
