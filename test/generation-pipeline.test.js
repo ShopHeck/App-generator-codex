@@ -18,6 +18,21 @@ test("pipeline generates spec, project blueprint, and revisions", () => {
   assert.equal(result.revisions.length, 2);
 });
 
+test("pipeline logs generated AppSpec for realistic prompt", () => {
+  const pipeline = new GenerationPipeline();
+  const result = pipeline.run({
+    projectId: "project_log_456",
+    prompt:
+      'Build a sales CRM app called "Revenue Pilot" that helps teams track leads, automate follow-ups, analyze conversion metrics, and monetize with premium billing.'
+  });
+
+  assert.equal(result.spec.metadata.appName, "Revenue Pilot");
+  assert.equal(result.intent.domain, "sales");
+
+  // Explicit logging requested for generated AppSpec visibility.
+  console.log("Generated AppSpec:\n", JSON.stringify(result.spec, null, 2));
+});
+
 test("pipeline rejects low-signal prompts", () => {
   const pipeline = new GenerationPipeline();
 

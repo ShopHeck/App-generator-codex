@@ -1,7 +1,7 @@
 import { validateAppSpec } from "../domain/app-spec.js";
 import { generateIosProjectBlueprint } from "../services/ios-project-generator.js";
-import { normalizePrompt, extractPromptIntent } from "../services/prompt-intake.js";
-import { buildStructuredSpec } from "../services/spec-generator.js";
+import { normalizePrompt, promptParser } from "../services/prompt-intake.js";
+import { specGenerator } from "../services/spec-generator.js";
 import { RevisionStore } from "../revisions/revision-store.js";
 
 export class GenerationPipeline {
@@ -11,8 +11,8 @@ export class GenerationPipeline {
 
   run({ projectId, prompt }) {
     const normalizedPrompt = normalizePrompt(prompt);
-    const intent = extractPromptIntent(normalizedPrompt);
-    const spec = buildStructuredSpec(intent);
+    const intent = promptParser(normalizedPrompt);
+    const spec = specGenerator(intent);
 
     validateAppSpec(spec);
 
