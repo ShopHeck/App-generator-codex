@@ -5,6 +5,10 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "generate:demo": "node src/orchestration/demo-run.js"
+    "generate:demo": "node src/orchestration/demo-run.js",
+    "start:api": "node src/backend/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
   }
 }
