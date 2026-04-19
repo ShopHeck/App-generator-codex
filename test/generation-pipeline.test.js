@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { GenerationPipeline } from "../src/orchestration/generation-pipeline.js";
 
-test("pipeline generates spec, project blueprint, and revisions", () => {
+test("pipeline generates spec, project blueprint summary, export job, and revisions", () => {
   const pipeline = new GenerationPipeline();
   const result = pipeline.run({
     projectId: "project_123",
@@ -14,7 +14,10 @@ test("pipeline generates spec, project blueprint, and revisions", () => {
   assert.ok(result.spec.screens.length >= 3);
   assert.ok(result.spec.integrations.some((integration) => integration.type === "supabase"));
   assert.ok(result.spec.integrations.some((integration) => integration.type === "stripe"));
-  assert.ok(result.projectBlueprint.files["TripPlannerPro/README.md"]);
+  assert.equal(result.projectBlueprint.projectName, "TripPlannerPro");
+  assert.ok(result.projectBlueprint.fileCount > 0);
+  assert.equal(result.exportJob.status, "completed");
+  assert.ok(result.exportJob.file);
   assert.equal(result.revisions.length, 2);
 });
 
