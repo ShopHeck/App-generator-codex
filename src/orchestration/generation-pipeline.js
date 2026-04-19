@@ -3,10 +3,12 @@ import { generateIosProjectBlueprint } from "../services/ios-project-generator.j
 import { normalizePrompt, extractPromptIntent } from "../services/prompt-intake.js";
 import { buildStructuredSpec } from "../services/spec-generator.js";
 import { RevisionStore } from "../revisions/revision-store.js";
+import { ExportService } from "../services/export-service.js";
 
 export class GenerationPipeline {
-  constructor({ revisionStore = new RevisionStore() } = {}) {
+  constructor({ revisionStore = new RevisionStore(), exportService = new ExportService() } = {}) {
     this.revisionStore = revisionStore;
+    this.exportService = exportService;
   }
 
   run({ projectId, prompt }) {
@@ -17,11 +19,20 @@ export class GenerationPipeline {
     validateAppSpec(spec);
 
     const projectBlueprint = generateIosProjectBlueprint(spec);
+    const exportJob = this.exportService.createAndProcessJob({
+      projectId,
+      files: projectBlueprint.files
+    });
 
     const specRevision = this.revisionStore.saveRevision(projectId, spec, "Generated structured app spec");
     const blueprintRevision = this.revisionStore.saveRevision(
       projectId,
-      projectBlueprint,
+      {
+        projectName: projectBlueprint.projectName,
+        directories: projectBlueprint.directories,
+        fileCount: Object.keys(projectBlueprint.files).length,
+        exportJobId: exportJob.id
+      },
       "Generated iOS project blueprint"
     );
 
@@ -30,7 +41,12 @@ export class GenerationPipeline {
       normalizedPrompt,
       intent,
       spec,
-      projectBlueprint,
+      projectBlueprint: {
+        projectName: projectBlueprint.projectName,
+        directories: projectBlueprint.directories,
+        fileCount: Object.keys(projectBlueprint.files).length
+      },
+      exportJob,
       revisions: [specRevision, blueprintRevision]
     };
   }

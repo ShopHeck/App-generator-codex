@@ -8,10 +8,17 @@ const result = pipeline.run({
     'Build a fitness coaching app called "Momentum Coach" with login, subscription billing, and cloud sync. Include progress insights and a settings screen.'
 });
 
-console.log(JSON.stringify({
-  projectId: result.projectId,
-  appName: result.spec.metadata.appName,
-  screens: result.spec.screens.map((screen) => screen.name),
-  integrations: result.spec.integrations,
-  generatedFiles: Object.keys(result.projectBlueprint.files)
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      projectId: result.projectId,
+      appName: result.spec.metadata.appName,
+      screens: result.spec.screens.map((screen) => screen.name),
+      integrations: result.spec.integrations,
+      projectBlueprint: result.projectBlueprint,
+      exportJob: result.exportJob
+    },
+    null,
+    2
+  )
+);
