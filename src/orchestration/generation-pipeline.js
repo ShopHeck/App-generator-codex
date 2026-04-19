@@ -2,36 +2,88 @@ import { validateAppSpec } from "../domain/app-spec.js";
 import { generateIosProjectBlueprint } from "../services/ios-project-generator.js";
 import { normalizePrompt, extractPromptIntent } from "../services/prompt-intake.js";
 import { buildStructuredSpec } from "../services/spec-generator.js";
-import { RevisionStore } from "../revisions/revision-store.js";
 
 export class GenerationPipeline {
-  constructor({ revisionStore = new RevisionStore() } = {}) {
-    this.revisionStore = revisionStore;
+  constructor({ projectRepository, specRevisionRepository, generationRunRepository, planLimitService }) {
+    this.projectRepository = projectRepository;
+    this.specRevisionRepository = specRevisionRepository;
+    this.generationRunRepository = generationRunRepository;
+    this.planLimitService = planLimitService;
   }
 
-  run({ projectId, prompt }) {
-    const normalizedPrompt = normalizePrompt(prompt);
-    const intent = extractPromptIntent(normalizedPrompt);
-    const spec = buildStructuredSpec(intent);
+  async run({ tenantId, userId, projectId, prompt }) {
+    if (!tenantId || !userId || !projectId) {
+      throw new Error("tenantId, userId, and projectId are required.");
+    }
 
-    validateAppSpec(spec);
+    const project = await this.projectRepository.getById({ tenantId, projectId });
+    if (!project) {
+      throw new Error("Project not found for tenant scope.");
+    }
 
-    const projectBlueprint = generateIosProjectBlueprint(spec);
+    await this.planLimitService.assertGenerationAllowed({ tenantId });
 
-    const specRevision = this.revisionStore.saveRevision(projectId, spec, "Generated structured app spec");
-    const blueprintRevision = this.revisionStore.saveRevision(
-      projectId,
-      projectBlueprint,
-      "Generated iOS project blueprint"
-    );
+    let normalizedPrompt = "";
 
-    return {
-      projectId,
-      normalizedPrompt,
-      intent,
-      spec,
-      projectBlueprint,
-      revisions: [specRevision, blueprintRevision]
-    };
+    try {
+      normalizedPrompt = normalizePrompt(prompt);
+      const intent = extractPromptIntent(normalizedPrompt);
+      const spec = buildStructuredSpec(intent);
+
+      validateAppSpec(spec);
+
+      const projectBlueprint = generateIosProjectBlueprint(spec);
+
+      const specRevision = await this.specRevisionRepository.create({
+        tenantId,
+        projectId,
+        userId,
+        revisionType: "spec",
+        payload: spec,
+        message: "Generated structured app spec"
+      });
+
+      const blueprintRevision = await this.specRevisionRepository.create({
+        tenantId,
+        projectId,
+        userId,
+        revisionType: "blueprint",
+        payload: projectBlueprint,
+        message: "Generated iOS project blueprint"
+      });
+
+      const generationRun = await this.generationRunRepository.create({
+        tenantId,
+        projectId,
+        userId,
+        status: "success",
+        prompt,
+        normalizedPrompt,
+        model: "rule-based-intent-v1"
+      });
+
+      return {
+        projectId,
+        normalizedPrompt,
+        intent,
+        spec,
+        projectBlueprint,
+        generationRun,
+        revisions: [specRevision, blueprintRevision]
+      };
+    } catch (error) {
+      await this.generationRunRepository.create({
+        tenantId,
+        projectId,
+        userId,
+        status: "failed",
+        prompt,
+        normalizedPrompt,
+        model: "rule-based-intent-v1",
+        errorMessage: error.message
+      });
+
+      throw error;
+    }
   }
 }
