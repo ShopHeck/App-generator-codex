@@ -2,6 +2,7 @@ import { validateAppSpec } from "../domain/app-spec.js";
 import { generateIosProjectBlueprint } from "../services/ios-project-generator.js";
 import { normalizePrompt, extractPromptIntent } from "../services/prompt-intake.js";
 import { buildStructuredSpec } from "../services/spec-generator.js";
+import { generatePreviewBundle } from "../services/preview-generator.js";
 import { RevisionStore } from "../revisions/revision-store.js";
 
 export class GenerationPipeline {
@@ -16,13 +17,26 @@ export class GenerationPipeline {
 
     validateAppSpec(spec);
 
+    const previewBundle = generatePreviewBundle(spec);
     const projectBlueprint = generateIosProjectBlueprint(spec);
 
-    const specRevision = this.revisionStore.saveRevision(projectId, spec, "Generated structured app spec");
+    const specRevision = this.revisionStore.saveRevision(
+      projectId,
+      spec,
+      "Generated structured app spec",
+      "app_spec"
+    );
+    const previewRevision = this.revisionStore.saveRevision(
+      projectId,
+      previewBundle,
+      "Generated app preview bundle",
+      "preview_bundle"
+    );
     const blueprintRevision = this.revisionStore.saveRevision(
       projectId,
       projectBlueprint,
-      "Generated iOS project blueprint"
+      "Generated iOS project blueprint",
+      "ios_project_blueprint"
     );
 
     return {
@@ -30,8 +44,9 @@ export class GenerationPipeline {
       normalizedPrompt,
       intent,
       spec,
+      previewBundle,
       projectBlueprint,
-      revisions: [specRevision, blueprintRevision]
+      revisions: [specRevision, previewRevision, blueprintRevision]
     };
   }
 }
