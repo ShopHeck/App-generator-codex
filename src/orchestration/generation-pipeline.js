@@ -16,7 +16,13 @@ export class GenerationPipeline {
     const intent = this.resolveIntent(normalizedPrompt);
     const spec = buildStructuredSpec(intent);
 
-    validateAppSpec(spec);
+    const validation = validateAppSpec(spec);
+    if (!validation.valid) {
+      const error = new Error("App spec validation failed.");
+      error.code = "APP_SPEC_VALIDATION_FAILED";
+      error.details = validation.errors;
+      throw error;
+    }
 
     const projectBlueprint = generateIosProjectBlueprint(spec);
 
