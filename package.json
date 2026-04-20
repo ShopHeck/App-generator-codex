@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "generate:demo": "node src/orchestration/demo-run.js"
+    "generate:demo": "node src/orchestration/demo-run.js",
+    "dashboard": "node src/orchestration/dashboard-server.js"
   }
 }

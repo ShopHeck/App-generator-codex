@@ -9,10 +9,14 @@ Backend-first generation pipeline scaffold for turning plain-English prompts int
 3. Structured app-spec generation
 4. iOS project blueprint assembly
 5. Revision history snapshots
+6. Internal dashboard UI for prompting, previewing, and AppSpec inspection
 
 ## Run
 
 ```bash
 npm test
 npm run generate:demo
+npm run dashboard
 ```
+
+Then open `http://127.0.0.1:4173`.
