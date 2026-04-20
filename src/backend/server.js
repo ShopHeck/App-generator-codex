@@ -11,12 +11,34 @@ import {
 import { ProjectStore } from "./project-store.js";
 import { generalApiLimiter, generationLimiter } from "../middleware/rate-limit.js";
 import logger from "../middleware/logger.js";
+import { buildAuthMiddleware, buildHmacVerifier, buildJwksVerifier } from "../middleware/auth.js";
+import { createTenantRouter } from "./routes/tenants.js";
+import { createDbPool } from "../db/client.js";
+import { TenantRepository, GenerationRunRepository, ExportRepository } from "../repositories/index.js";
 
-export function createServer({ projectStore = new ProjectStore(), pipeline = new GenerationPipeline() } = {}) {
+export function createServer({
+  projectStore = new ProjectStore(),
+  pipeline = new GenerationPipeline(),
+  requireAuth = null,
+  db = null,
+  tenantRepository = null,
+  generationRunRepository = null,
+  exportRepository = null
+} = {}) {
   const app = express();
   app.use(express.json());
   app.use(pinoHttp({ logger }));
   app.use(generalApiLimiter);
+
+  // ── Health check (always public — no auth required) ──────────────────────
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok", uptime: Math.floor(process.uptime()) });
+  });
+
+  // ── Auth gate: every route registered below requires a valid bearer token
+  if (requireAuth) {
+    app.use(requireAuth);
+  }
 
   app.get("/projects", (_req, res) => {
     res.json({ projects: projectStore.list().map(createProjectResponse) });
@@ -129,12 +151,54 @@ export function createServer({ projectStore = new ProjectStore(), pipeline = new
     }
   });
 
+  // ── Tenant management routes (mounted when DB is configured) ────────────
+  if (db) {
+    app.use(
+      "/tenants",
+      createTenantRouter({ db, tenantRepository, generationRunRepository, exportRepository })
+    );
+  }
+
   return app;
 }
 
 if (process.env.NODE_ENV !== "test") {
   const port = Number(process.env.PORT || 3001);
-  const app = createServer();
+
+  // ── Auth middleware ───────────────────────────────────────────────────────
+  let requireAuth = null;
+  if (process.env.JWT_SECRET) {
+    requireAuth = buildAuthMiddleware({
+      verifyAccessToken: buildHmacVerifier({ secret: process.env.JWT_SECRET })
+    });
+    logger.info("Auth mode: HMAC/JWT (JWT_SECRET)");
+  } else if (process.env.SUPABASE_URL) {
+    const jwksUri = `${process.env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`;
+    requireAuth = buildAuthMiddleware({
+      verifyAccessToken: buildJwksVerifier({ jwksUri })
+    });
+    logger.info({ jwksUri }, "Auth mode: JWKS (SUPABASE_URL)");
+  } else {
+    logger.warn(
+      "No JWT_SECRET or SUPABASE_URL set — API running without authentication. Set JWT_SECRET for production."
+    );
+  }
+
+  // ── Database pool + repositories ─────────────────────────────────────────
+  let db = null;
+  let tenantRepository = null;
+  let generationRunRepository = null;
+  let exportRepository = null;
+
+  if (process.env.POSTGRES_URL || process.env.POSTGRES_HOST) {
+    db = createDbPool();
+    tenantRepository = new TenantRepository({ db });
+    generationRunRepository = new GenerationRunRepository({ db });
+    exportRepository = new ExportRepository({ db });
+    logger.info("Database: PostgreSQL pool initialized");
+  }
+
+  const app = createServer({ requireAuth, db, tenantRepository, generationRunRepository, exportRepository });
   app.listen(port, () => {
     logger.info({ port }, "API server listening");
   });

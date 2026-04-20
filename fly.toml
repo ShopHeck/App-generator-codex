@@ -1,0 +1,55 @@
+# fly.toml — Fly.io application configuration for App Generator Codex
+#
+# The app name here is the default used for manual `flyctl` invocations.
+# The CI/CD pipeline overrides it with --app $FLY_APP_NAME.
+#
+# Required Fly secrets (set with `flyctl secrets set`):
+#   POSTGRES_URL               — full Postgres connection string
+#   JWT_SECRET                 — HMAC signing secret (min 32 chars), OR
+#   SUPABASE_URL               — for JWKS/Supabase auth mode
+#   SUPABASE_SERVICE_ROLE_KEY  — required when SUPABASE_URL is set
+#   OPENAI_API_KEY             — optional; enables LLM-powered intent extraction
+
+app = "app-generator-codex"
+primary_region = "iad"
+
+[build]
+  # The CI pipeline pushes an image and deploys with --image, so this
+  # build section is only used for manual `flyctl deploy` without --image.
+
+[deploy]
+  # Run database migrations as a one-off release VM before the rolling
+  # update begins.  Guarantees exactly one migration run per deployment
+  # even with multiple app instances, and fails the deployment if
+  # migrations fail (preventing a bad release from going live).
+  release_command = "node scripts/migrate.js"
+
+[env]
+  NODE_ENV  = "production"
+  PORT      = "3001"
+  LOG_LEVEL = "info"
+
+[http_service]
+  internal_port       = 3001
+  force_https         = true
+  auto_stop_machines  = true
+  auto_start_machines = true
+  min_machines_running = 1
+  processes           = ["app"]
+
+  [http_service.concurrency]
+    type       = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval     = "15s"
+    method       = "GET"
+    path         = "/health"
+    timeout      = "5s"
+
+[[vm]]
+  memory   = "512mb"
+  cpu_kind = "shared"
+  cpus     = 1
