@@ -1,0 +1,5 @@
+# Core platform ownership
+/src/domain/ @engineering-leads
+/src/services/ @engineering-leads
+/src/orchestration/ @engineering-leads
+/dashboard/ @engineering-leads
