@@ -16,3 +16,7 @@ Backend-first generation pipeline scaffold for turning plain-English prompts int
 npm test
 npm run generate:demo
 ```
+
+## CI status required for merge
+
+`main` is protected and requires the GitHub Actions `CI` workflow to pass before merge.
