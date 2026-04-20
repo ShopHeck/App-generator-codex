@@ -13,7 +13,7 @@ fi
 
 REPO="$1"
 
-curl -sS -X PUT \
+curl -sSf -X PUT \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: Bearer ${GITHUB_TOKEN}" \
   "https://api.github.com/repos/${REPO}/branches/main/protection" \
