@@ -35,7 +35,11 @@ export function createServer({
     res.json({ status: "ok", uptime: Math.floor(process.uptime()) });
   });
 
-  // ── Auth gate: every route registered below requires a valid bearer token
+  // ── Auth gate: every route registered below requires a valid bearer token ──
+  // NOTE: project routes (GET /projects, POST /projects, etc.) and tenant
+  // management routes are intentionally protected.  The only public endpoint
+  // is GET /health above.  When createServer() is called without requireAuth
+  // (e.g. in unit tests or local dev without JWT_SECRET) all routes are open.
   if (requireAuth) {
     app.use(requireAuth);
   }
