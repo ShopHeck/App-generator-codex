@@ -1,20 +1,28 @@
 import { validateAppSpec } from "../domain/app-spec.js";
 import { normalizePrompt, extractPromptIntent } from "../services/prompt-intake.js";
+import { parseIntentFromPrompt, IntentValidationError } from "../services/llm-intent-service.js";
 import { buildStructuredSpec } from "../services/spec-generator.js";
 import { RevisionStore } from "../revisions/revision-store.js";
 import { getGenerator } from "../generators/registry.js";
 
 export class GenerationPipeline {
-  constructor({ revisionStore = new RevisionStore() } = {}) {
+  constructor({ revisionStore = new RevisionStore(), llmIntentService = parseIntentFromPrompt } = {}) {
     this.revisionStore = revisionStore;
+    this.llmIntentService = llmIntentService;
   }
 
   run({ projectId, prompt, target = "ios_swiftui" }) {
     const normalizedPrompt = normalizePrompt(prompt);
-    const intent = extractPromptIntent(normalizedPrompt);
+    const intent = this.resolveIntent(normalizedPrompt);
     const spec = buildStructuredSpec(intent);
 
-    validateAppSpec(spec);
+    const validation = validateAppSpec(spec);
+    if (!validation.valid) {
+      const error = new Error("App spec validation failed.");
+      error.code = "APP_SPEC_VALIDATION_FAILED";
+      error.details = validation.errors;
+      throw error;
+    }
 
     const generator = getGenerator(target);
     const projectBlueprint = generator.generate(spec);
@@ -37,6 +45,18 @@ export class GenerationPipeline {
       artifacts,
       revisions: [specRevision, blueprintRevision]
     };
+  }
+
+  resolveIntent(normalizedPrompt) {
+    try {
+      return this.llmIntentService(normalizedPrompt);
+    } catch (error) {
+      if (error instanceof IntentValidationError) {
+        return extractPromptIntent(normalizedPrompt);
+      }
+
+      throw error;
+    }
   }
 }
 
