@@ -1,36 +1,55 @@
+import { z } from "zod";
 import { validateAppSpec } from "./app-spec.js";
 
+// ─── Request schemas ──────────────────────────────────────────────────────────
+
+const CreateProjectSchema = z.object({
+  name: z.string().trim().min(1, "name is required"),
+  prompt: z.string().trim().default(""),
+  spec: z.unknown().optional().nullable()
+});
+
+const GenerateProjectSchema = z.object({
+  prompt: z.string().trim().min(20, "prompt must be at least 20 characters")
+});
+
+const ExportProjectSchema = z.object({
+  format: z.enum(["zip", "tar"]).default("zip")
+});
+
+// ─── Validated request factories ─────────────────────────────────────────────
+
 export function validateCreateProjectRequest(payload) {
-  if (!payload?.name || typeof payload.name !== "string") {
-    throw new Error("Request validation failed: name is required.");
+  const result = CreateProjectSchema.safeParse(payload);
+  if (!result.success) {
+    throw new Error("Request validation failed: " + result.error.issues.map((i) => i.message).join("; "));
   }
 
-  if (payload.spec) {
-    validateAppSpec(payload.spec);
+  const { name, prompt, spec } = result.data;
+
+  if (spec) {
+    validateAppSpec(spec);
   }
 
-  return {
-    name: payload.name.trim(),
-    prompt: (payload.prompt ?? "").trim(),
-    spec: payload.spec ?? null
-  };
+  return { name, prompt, spec: spec ?? null };
 }
 
 export function validateGenerateProjectRequest(payload) {
-  if (!payload?.prompt || typeof payload.prompt !== "string") {
-    throw new Error("Request validation failed: prompt is required.");
+  const result = GenerateProjectSchema.safeParse(payload);
+  if (!result.success) {
+    throw new Error("Request validation failed: " + result.error.issues.map((i) => i.message).join("; "));
   }
 
-  return { prompt: payload.prompt.trim() };
+  return { prompt: result.data.prompt };
 }
 
 export function validateExportProjectRequest(payload) {
-  const format = payload?.format ?? "zip";
-  if (!["zip", "tar"].includes(format)) {
-    throw new Error("Request validation failed: format must be zip or tar.");
+  const result = ExportProjectSchema.safeParse(payload);
+  if (!result.success) {
+    throw new Error("Request validation failed: " + result.error.issues.map((i) => i.message).join("; "));
   }
 
-  return { format };
+  return { format: result.data.format };
 }
 
 export function createProjectResponse(project) {
@@ -43,3 +62,4 @@ export function createProjectResponse(project) {
     updatedAt: project.updatedAt
   };
 }
+

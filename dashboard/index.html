@@ -63,6 +63,10 @@
       </aside>
     </main>
 
+    <!-- API base URL — set window.API_BASE before this script to override -->
+    <script>
+      window.API_BASE = window.API_BASE ?? "http://127.0.0.1:3001";
+    </script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

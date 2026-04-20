@@ -1,4 +1,5 @@
 import express from "express";
+import pinoHttp from "pino-http";
 import { GenerationPipeline } from "../orchestration/generation-pipeline.js";
 import { createExportArtifact, createGenerationArtifact, GENERATION_STATUS } from "../domain/artifact-contracts.js";
 import {
@@ -8,10 +9,14 @@ import {
   validateGenerateProjectRequest
 } from "../domain/project-api-contracts.js";
 import { ProjectStore } from "./project-store.js";
+import { generalApiLimiter, generationLimiter } from "../middleware/rate-limit.js";
+import logger from "../middleware/logger.js";
 
 export function createServer({ projectStore = new ProjectStore(), pipeline = new GenerationPipeline() } = {}) {
   const app = express();
   app.use(express.json());
+  app.use(pinoHttp({ logger }));
+  app.use(generalApiLimiter);
 
   app.get("/projects", (_req, res) => {
     res.json({ projects: projectStore.list().map(createProjectResponse) });
@@ -27,7 +32,7 @@ export function createServer({ projectStore = new ProjectStore(), pipeline = new
     }
   });
 
-  app.post("/projects/:id/generate", (req, res) => {
+  app.post("/projects/:id/generate", generationLimiter, (req, res) => {
     const project = projectStore.get(req.params.id);
     if (!project) {
       return res.status(404).json({ error: "Project not found." });
@@ -42,6 +47,7 @@ export function createServer({ projectStore = new ProjectStore(), pipeline = new
       });
 
       setImmediate(async () => {
+        const startMs = Date.now();
         try {
           const output = await pipeline.run({ projectId: project.id, prompt: payload.prompt });
           const artifact = createGenerationArtifact(output);
@@ -51,11 +57,13 @@ export function createServer({ projectStore = new ProjectStore(), pipeline = new
             projectBlueprint: artifact.projectBlueprint,
             revisions: artifact.revisions
           });
+          logger.info({ projectId: project.id, durationMs: Date.now() - startMs }, "Generation completed");
         } catch (error) {
           projectStore.update(project.id, {
             status: GENERATION_STATUS.failed,
             lastError: error.message
           });
+          logger.error({ projectId: project.id, err: error.message }, "Generation failed");
         }
       });
 
@@ -128,7 +136,6 @@ if (process.env.NODE_ENV !== "test") {
   const port = Number(process.env.PORT || 3001);
   const app = createServer();
   app.listen(port, () => {
-    // eslint-disable-next-line no-console
-    console.log(`API server listening on :${port}`);
+    logger.info({ port }, "API server listening");
   });
 }
