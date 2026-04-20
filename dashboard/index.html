@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Internal App Builder Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="dashboard">
+      <aside class="panel panel-left" aria-label="Prompt panel">
+        <header class="panel-header">
+          <h1>Builder Input</h1>
+          <p>Define app goals and iterate fast.</p>
+        </header>
+
+        <form id="prompt-form" class="prompt-form">
+          <label for="prompt-input">Prompt</label>
+          <textarea
+            id="prompt-input"
+            name="prompt"
+            rows="6"
+            placeholder="Describe the app you want to generate..."
+            required
+          ></textarea>
+          <button type="submit">Generate Draft</button>
+        </form>
+
+        <section class="history" aria-label="Prompt history">
+          <div class="history-header">
+            <h2>History</h2>
+            <button id="clear-history" type="button" class="button-secondary">Clear</button>
+          </div>
+          <ul id="history-list" class="history-list"></ul>
+        </section>
+      </aside>
+
+      <section class="panel panel-center" aria-label="Preview panel">
+        <header class="panel-header">
+          <h2>Live Preview</h2>
+          <p>Visual output for the current iteration.</p>
+        </header>
+
+        <div class="preview-frame">
+          <div class="preview-card">
+            <span class="preview-pill">App Preview</span>
+            <h3 id="preview-title">New App Draft</h3>
+            <p id="preview-description">Submit a prompt to generate a structured app draft.</p>
+            <div id="preview-actions" class="preview-actions">
+              <button type="button">Primary Action</button>
+              <button type="button" class="button-secondary">Secondary</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel panel-right" aria-label="AppSpec panel">
+        <header class="panel-header">
+          <h2>AppSpec Viewer</h2>
+          <p>Structured output for implementation.</p>
+        </header>
+        <pre id="appspec-viewer" class="appspec-viewer" aria-live="polite"></pre>
+      </aside>
+    </main>
+
+    <!-- API base URL — set window.API_BASE before this script to override -->
+    <script>
+      window.API_BASE = window.API_BASE ?? "http://127.0.0.1:3001";
+    </script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

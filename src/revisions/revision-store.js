@@ -3,7 +3,7 @@ export class RevisionStore {
     this.revisionsByProject = new Map();
   }
 
-  saveRevision(projectId, payload, message) {
+  saveRevision(projectId, payload, message, type = "pipeline_update") {
     if (!projectId) {
       throw new Error("projectId is required to save a revision.");
     }
@@ -13,6 +13,7 @@ export class RevisionStore {
       id: `rev_${revisions.length + 1}`,
       timestamp: new Date().toISOString(),
       message: message || "Pipeline update",
+      type,
       payload
     };
 

@@ -1,4 +1,69 @@
+import OpenAI from "openai";
 import { extractPromptIntent } from "./prompt-intake.js";
+
+/**
+ * Create an OpenAI-backed intent parser.
+ * Falls back to `inferIntentWithModelHeuristics` if OPENAI_API_KEY is absent
+ * or if the LLM returns an invalid response.
+ *
+ * @param {object} [config]
+ * @param {string} [config.apiKey]   — override OPENAI_API_KEY env var
+ * @param {string} [config.model]    — default 'gpt-4o-mini'
+ * @returns {{ callLlmForIntent: Function }}
+ */
+export function createLlmIntentClient(config = {}) {
+  const apiKey = config.apiKey ?? process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return null;
+  }
+
+  const openai = new OpenAI({ apiKey });
+  const model = config.model ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+
+  return async function callLlmForIntent(prompt) {
+    const response = await openai.chat.completions.create({
+      model,
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+      max_tokens: 512,
+      messages: [
+        {
+          role: "system",
+          content: SYSTEM_PROMPT
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
+    });
+
+    const raw = response.choices[0]?.message?.content ?? "{}";
+    return JSON.parse(raw);
+  };
+}
+
+const SYSTEM_PROMPT = `You are an expert iOS app specification parser.
+Given a plain-English app description, respond with a single JSON object matching this schema:
+{
+  "appName": string (min 1 char),
+  "domain": one of ["fitness","sales","travel","finance","ecommerce","general"],
+  "features": string[] (list of feature names mentioned),
+  "monetization": {
+    "model": one of ["subscription","freemium","one_time","ads","none"],
+    "notes": string
+  },
+  "integrations": subset of ["rest_api","supabase","firebase","stripe","zapier","webhooks"],
+  "constraints": {
+    "requiresAuth": boolean,
+    "requiresPayments": boolean,
+    "requiresSync": boolean,
+    "timeline": string,
+    "budget": string
+  }
+}
+Return ONLY the JSON. Do not include markdown fences or extra text.`;
 
 const INTENT_JSON_SCHEMA = {
   type: "object",
@@ -57,6 +122,37 @@ export function parseIntentFromPrompt(rawPromptText, { modelOutput } = {}) {
   }
 
   return normalizeIntent(candidateIntent);
+}
+
+/**
+ * Async variant that attempts to call the real OpenAI API first, then falls
+ * back to the local heuristics on any error (network failure, invalid JSON,
+ * schema mismatch, missing API key).
+ *
+ * @param {string}   rawPromptText
+ * @param {Function} [callLlmForIntent] — from createLlmIntentClient()
+ */
+export async function parseIntentFromPromptAsync(rawPromptText, callLlmForIntent = null) {
+  if (typeof rawPromptText !== "string" || rawPromptText.trim().length === 0) {
+    throw new IntentValidationError("Prompt text is required for intent parsing.");
+  }
+
+  if (callLlmForIntent) {
+    try {
+      const llmOutput = await callLlmForIntent(rawPromptText);
+      const validationErrors = validateSchema(llmOutput, INTENT_JSON_SCHEMA);
+
+      if (validationErrors.length === 0) {
+        return normalizeIntent(llmOutput);
+      }
+      // LLM returned invalid schema — fall through to heuristics
+    } catch {
+      // Network failure, invalid JSON, rate limit — fall through to heuristics
+    }
+  }
+
+  // Heuristic fallback (synchronous, always available)
+  return parseIntentFromPrompt(rawPromptText);
 }
 
 function inferIntentWithModelHeuristics(prompt) {

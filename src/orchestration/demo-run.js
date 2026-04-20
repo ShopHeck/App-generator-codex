@@ -2,7 +2,7 @@ import { GenerationPipeline } from "./generation-pipeline.js";
 
 const pipeline = new GenerationPipeline();
 
-const result = pipeline.run({
+const result = await pipeline.run({
   projectId: "project_demo_001",
   target: "ios_swiftui",
   prompt:
@@ -17,7 +17,9 @@ console.log(
       appName: result.spec.metadata.appName,
       screens: result.spec.screens.map((screen) => screen.name),
       integrations: result.spec.integrations,
-      generatedFiles: Object.keys(result.projectBlueprint.files),
+      projectBlueprint: result.projectBlueprint,
+      exportJob: { id: result.exportJob.id, status: result.exportJob.status },
+      previewScreens: result.previewBundle.screens.map((s) => s.name),
       artifacts: result.artifacts
     },
     null,
