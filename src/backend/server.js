@@ -41,9 +41,9 @@ export function createServer({ projectStore = new ProjectStore(), pipeline = new
         lastError: null
       });
 
-      setTimeout(() => {
+      setImmediate(async () => {
         try {
-          const output = pipeline.run({ projectId: project.id, prompt: payload.prompt });
+          const output = await pipeline.run({ projectId: project.id, prompt: payload.prompt });
           const artifact = createGenerationArtifact(output);
           projectStore.update(project.id, {
             status: GENERATION_STATUS.completed,
@@ -57,7 +57,7 @@ export function createServer({ projectStore = new ProjectStore(), pipeline = new
             lastError: error.message
           });
         }
-      }, 0);
+      });
 
       return res.status(202).json({
         project: createProjectResponse(projectStore.get(project.id)),
