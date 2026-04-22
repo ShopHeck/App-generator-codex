@@ -4,6 +4,18 @@
 -- Supabase sets auth.uid() from the JWT `sub` claim; we store tenant_id
 -- in JWT custom claims and expose it via auth.jwt()->>'tenantId'.
 
+-- Some environments (local CI Postgres) do not provide Supabase's auth schema.
+-- Create a minimal compatibility shim so policy creation does not fail.
+create schema if not exists auth;
+
+create or replace function auth.jwt()
+returns jsonb
+language sql
+stable
+as $$
+  select coalesce(current_setting('request.jwt.claims', true), '{}')::jsonb
+$$;
+
 -- ─── Enable RLS ─────────────────────────────────────────────────────────────
 
 alter table tenants           enable row level security;

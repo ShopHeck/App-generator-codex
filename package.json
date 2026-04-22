@@ -4,8 +4,8 @@
   "description": "Backend workflow for AI-generated iOS apps",
   "type": "module",
   "scripts": {
-    "test": "node --test 'test/*.test.js'",
-    "test:integration": "node --test 'test/integration/*.test.js'",
+    "test": "node --test test/*.test.js",
+    "test:integration": "node --test test/integration/*.test.js",
     "generate:demo": "node src/orchestration/demo-run.js",
     "start:api": "node src/backend/server.js",
     "dashboard": "node src/orchestration/dashboard-server.js",
