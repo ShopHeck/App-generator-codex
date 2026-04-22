@@ -17,8 +17,9 @@ begin
       language sql
       stable
       as $inner$
-        -- Fail-closed default: policies comparing tenant_id to jwt tenantId
-        -- evaluate false when claims are absent.
+        -- Fail-closed default: returning {} means tenantId is absent, so
+        -- checks like `tenant_id::text = auth.jwt() ->> 'tenantId'` become
+        -- `tenant_id::text = null`, which evaluates to false.
         select coalesce(
           nullif(current_setting('request.jwt.claims', true), '')::jsonb,
           '{}'::jsonb
