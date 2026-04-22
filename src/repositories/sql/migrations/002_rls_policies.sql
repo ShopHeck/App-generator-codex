@@ -15,11 +15,14 @@ begin
       create function auth.jwt()
       returns jsonb
       language sql
-      volatile
+      stable
       as $inner$
         -- Fail-closed default: policies comparing tenant_id to jwt tenantId
         -- evaluate false when claims are absent.
-        select coalesce(current_setting('request.jwt.claims', true), '{}')::jsonb
+        select coalesce(
+          nullif(current_setting('request.jwt.claims', true), '')::jsonb,
+          '{}'::jsonb
+        )
       $inner$;
     $fn$;
   end if;
