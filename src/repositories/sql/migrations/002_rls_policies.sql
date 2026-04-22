@@ -6,16 +6,24 @@
 
 -- Some environments (local CI Postgres) do not provide Supabase's auth schema.
 -- Create a minimal compatibility shim so policy creation does not fail.
-create schema if not exists auth;
+do $$
+begin
+  create schema if not exists auth;
 
-create or replace function auth.jwt()
-returns jsonb
-language sql
-stable
-as $$
-  -- Fail-closed default: policies comparing tenant_id to jwt tenantId
-  -- evaluate false when claims are absent.
-  select coalesce(current_setting('request.jwt.claims', true), '{}')::jsonb
+  if to_regprocedure('auth.jwt()') is null then
+    execute $fn$
+      create function auth.jwt()
+      returns jsonb
+      language sql
+      volatile
+      as $inner$
+        -- Fail-closed default: policies comparing tenant_id to jwt tenantId
+        -- evaluate false when claims are absent.
+        select coalesce(current_setting('request.jwt.claims', true), '{}')::jsonb
+      $inner$;
+    $fn$;
+  end if;
+end
 $$;
 
 -- ─── Enable RLS ─────────────────────────────────────────────────────────────
