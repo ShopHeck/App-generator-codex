@@ -13,6 +13,8 @@ returns jsonb
 language sql
 stable
 as $$
+  -- Fail-closed default: policies comparing tenant_id to jwt tenantId
+  -- evaluate false when claims are absent.
   select coalesce(current_setting('request.jwt.claims', true), '{}')::jsonb
 $$;
 
